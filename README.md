@@ -1,10 +1,10 @@
 # cf-colo-watcher
 
-A lightweight bash script for observing [Cloudflare](https://www.cloudflare.com/) colo (datacenter) routing and TTFB in real time.
+A small bash script that shows which [Cloudflare](https://www.cloudflare.com/) colo (datacenter) is serving each request, along with cache status and TTFB.
 
 ## Why
 
-Cloudflare routes each request through one of its edge locations (colos) based on anycast and current network conditions, so the same site can be served from different colos depending on the client's ISP and geography. This script gives you a live view of which colo is serving you, the cache status, TTFB, and total request time — one line per request — so you can see how performance varies across colos and over time.
+Cloudflare routes each request through one of its edge locations (colos) based on anycast and current network conditions, so the same site can be served from different colos depending on the client's ISP and geography. This script gives you a live view of which colo is serving you, the cache status, TTFB, and total request time (one line per request), so you can see how performance varies across colos and over time.
 
 Run it, switch VPN locations mid-run, and watch the colo change. The timing column tells the story.
 
@@ -46,9 +46,9 @@ TTFB is color-coded in the live output:
 ./colowatch.sh <url> [interval_seconds] [count]
 ```
 
-- `url` — required, the URL to test
-- `interval_seconds` — optional, seconds between requests (default 5)
-- `count` — optional, stop after N requests (default 0 = run until Ctrl+C)
+- `url` - required, the URL to test
+- `interval_seconds` - optional, seconds between requests (default 5)
+- `count` - optional, stop after N requests (default 0 = run until Ctrl+C)
 
 Examples:
 
@@ -82,7 +82,7 @@ chmod +x colowatch.sh
 - curl
 - awk
 
-Works on Linux out of the box. macOS ships with bash 3.2 by default — install a newer bash via `brew install bash` and run with `/opt/homebrew/bin/bash ./colowatch.sh ...` (or `/usr/local/bin/bash` on Intel Macs).
+Works on Linux out of the box. macOS ships with bash 3.2 by default, so install a newer bash via `brew install bash` and run with `/opt/homebrew/bin/bash ./colowatch.sh ...` (or `/usr/local/bin/bash` on Intel Macs).
 
 ## How it works
 

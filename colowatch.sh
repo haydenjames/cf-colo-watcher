@@ -2,8 +2,9 @@
 #
 # colowatch.sh - Watch Cloudflare colo and TTFB in real time
 #
-# Useful for debugging slow performance from a specific Cloudflare datacenter.
-# Run it, switch VPN locations mid-run, and watch how colo + timing change.
+# Shows which Cloudflare colo (datacenter) is serving each request, along with
+# cache status and TTFB. Run it, switch VPN/connection mid-run, and watch how
+# the colo and timing change.
 #
 # Usage:
 #   ./colowatch.sh <url> [interval] [count]
@@ -119,7 +120,7 @@ while true; do
   # Defaults if missing
   colo="${colo:-???}"
   cache="${cache:-NONE}"
-  ray="${ray:-—}"
+  ray="${ray:--}"
   code="${code:-000}"
 
   # Only update stats on a successful request, otherwise zeros pollute min/avg
