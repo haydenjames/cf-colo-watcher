@@ -17,7 +17,7 @@ Cloudflare colo watch
 URL:      https://example.com
 Interval: 5s
 Started:  Mon May  4 14:25:00 EDT 2026
-Switch your VPN mid-run to compare colos. Ctrl+C to stop.
+Switch your VPN/connection mid-run to compare colos. Ctrl+C to stop.
 
 TIME     | COLO   | HTTP | CACHE        | TTFB      | TOTAL     | CF-RAY
 ---------+--------+------+--------------+-----------+-----------+--------------------------

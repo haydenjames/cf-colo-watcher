@@ -65,7 +65,7 @@ else
   echo  "Count:    unlimited (Ctrl+C to stop)"
 fi
 echo    "Started:  $(date)"
-echo    "Switch your VPN mid-run to compare colos. Ctrl+C to stop."
+echo    "Switch your VPN/connection mid-run to compare colos. Ctrl+C to stop."
 echo
 printf "${BOLD}%-8s | %-6s | %-3s | %-12s | %-9s | %-9s | %s${RESET}\n" \
        "TIME" "COLO" "HTTP" "CACHE" "TTFB" "TOTAL" "CF-RAY"
