@@ -10,6 +10,8 @@ Run it, switch VPN locations mid-run, and watch the colo change. The timing colu
 
 ## Example output
 
+![cf-colo-watcher screenshot](screenshot.png)
+
 ```
 Cloudflare colo watch
 URL:      https://example.com
