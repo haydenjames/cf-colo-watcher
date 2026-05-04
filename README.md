@@ -2,6 +2,8 @@
 
 A small bash script that shows which [Cloudflare](https://www.cloudflare.com/) colo (datacenter) is serving each request, along with cache status and TTFB.
 
+For background on why this exists, see [the post on linuxblog.io](https://linuxblog.io/cloudflare-data-center-watcher/).
+
 ## Why
 
 Cloudflare routes each request through one of its edge locations (colos) based on anycast and current network conditions, so the same site can be served from different colos depending on the client's ISP and geography. This script gives you a live view of which colo is serving you, the cache status, TTFB, and total request time (one line per request), so you can see how performance varies across colos and over time.
