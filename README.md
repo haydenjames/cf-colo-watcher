@@ -12,7 +12,7 @@ Run it, switch VPN/connection mid-run, and watch the colo change. The timing col
 
 ## Example output
 
-![cf-colo-watcher screenshot](screenshot.png)
+![cf-colo-watcher screenshot](colowatch.png)
 
 Default view (DNS / TCP / TLS handshake times in milliseconds, plus TTFB and total in seconds):
 
