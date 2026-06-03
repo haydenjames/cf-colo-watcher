@@ -3,21 +3,21 @@
 # colowatch.sh - Watch Cloudflare colo and TTFB in real time
 #
 # Shows which Cloudflare colo (datacenter) is serving each request, along with
-# cache status, TTFB, and Cloudflare's own edge processing time. Run it, switch
+# cache status, TTFB, and per-phase DNS/TCP/TLS handshake times. Run it, switch
 # VPN/connection mid-run, and watch how the colo and timing change.
 #
 # Usage:
 #   ./colowatch.sh [options] <url> [interval] [count]
 #
 # Options:
-#   -d, --detailed    Show DNS/TCP/TLS timing breakdown
+#   -c, --compact     Narrower table without the DNS/TCP/TLS breakdown
 #       --csv FILE    Write all samples as CSV to FILE
 #       --json FILE   Write all samples as JSON Lines to FILE
 #   -h, --help        Show this help
 #
 # Examples:
 #   ./colowatch.sh https://example.com
-#   ./colowatch.sh -d https://example.com
+#   ./colowatch.sh -c https://example.com
 #   ./colowatch.sh --csv runs.csv https://example.com 5 50
 #   ./colowatch.sh --json runs.jsonl https://example.com 5 100
 #
@@ -27,8 +27,8 @@
 
 set -u
 
-VERSION="1.1.0"
-DETAILED=0
+VERSION="1.2.0"
+COMPACT=0
 CSV_OUT=""
 JSON_OUT=""
 
@@ -39,7 +39,7 @@ colowatch $VERSION
 Usage: $0 [options] <url> [interval] [count]
 
 Options:
-  -d, --detailed    Show DNS/TCP/TLS timing breakdown
+  -c, --compact     Narrower table without the DNS/TCP/TLS breakdown
       --csv FILE    Write all samples as CSV to FILE
       --json FILE   Write all samples as JSON Lines to FILE
   -h, --help        Show this help
@@ -49,7 +49,7 @@ Options:
 
 Examples:
   $0 https://example.com
-  $0 -d https://example.com
+  $0 -c https://example.com
   $0 --csv runs.csv https://example.com 5 50
 EOF
 }
@@ -58,7 +58,7 @@ EOF
 POSITIONAL_1=""; POSITIONAL_2=""; POSITIONAL_3=""; PIDX=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    -d|--detailed) DETAILED=1; shift ;;
+    -c|--compact)  COMPACT=1; shift ;;
     --csv)         CSV_OUT="${2:-}"; shift 2 ;;
     --json)        JSON_OUT="${2:-}"; shift 2 ;;
     -h|--help)     print_usage; exit 0 ;;
@@ -125,7 +125,7 @@ STATS_FILE=$(mktemp)
 HEADER_FILE=$(mktemp)
 
 # Stats CSV header (also used as default CSV output schema)
-echo 'timestamp,colo,cache,http_code,dns_ms,tcp_ms,tls_ms,ttfb_s,total_s,cf_req_duration_ms,cf_ray,server_timing' > "$STATS_FILE"
+echo 'timestamp,colo,cache,http_code,dns_ms,tcp_ms,tls_ms,ttfb_s,total_s,cf_ray,server_timing' > "$STATS_FILE"
 
 # Truncate JSON output if requested
 if [ -n "$JSON_OUT" ]; then
@@ -144,22 +144,22 @@ else
 fi
 echo    "Started:  $(date)"
 echo    "Switch your VPN/connection mid-run to compare colos. Ctrl+C to stop."
-if [ "$DETAILED" -eq 0 ]; then
-  echo -e "${DIM}Tip: pass -d or --detailed for DNS/TCP/TLS breakdown.${RESET}"
+if [ "$COMPACT" -eq 0 ]; then
+  echo -e "${DIM}Tip: pass -c or --compact for a narrower table.${RESET}"
 fi
 if [ -n "$CSV_OUT" ];  then echo "CSV out:  $CSV_OUT"; fi
 if [ -n "$JSON_OUT" ]; then echo "JSON out: $JSON_OUT"; fi
 echo
 
 # Table header
-if [ "$DETAILED" -eq 1 ]; then
-  printf "${BOLD}%-8s | %-6s | %-3s | %-9s | %5s | %5s | %5s | %-9s | %-9s | %-7s | %s${RESET}\n" \
-    "TIME" "COLO" "HTTP" "CACHE" "DNS" "TCP" "TLS" "TTFB" "TOTAL" "CF-DUR" "CF-RAY"
-  printf -- "---------+--------+-----+-----------+-------+-------+-------+-----------+-----------+---------+--------------------------\n"
+if [ "$COMPACT" -eq 1 ]; then
+  printf "${BOLD}%-8s | %-6s | %-3s | %-9s | %-9s | %-9s | %s${RESET}\n" \
+    "TIME" "COLO" "HTTP" "CACHE" "TTFB" "TOTAL" "CF-RAY"
+  printf -- "---------+--------+-----+-----------+-----------+-----------+--------------------------\n"
 else
-  printf "${BOLD}%-8s | %-6s | %-3s | %-9s | %-9s | %-9s | %-7s | %s${RESET}\n" \
-    "TIME" "COLO" "HTTP" "CACHE" "TTFB" "TOTAL" "CF-DUR" "CF-RAY"
-  printf -- "---------+--------+-----+-----------+-----------+-----------+---------+--------------------------\n"
+  printf "${BOLD}%-8s | %-6s | %-3s | %-9s | %5s | %5s | %5s | %-9s | %-9s | %s${RESET}\n" \
+    "TIME" "COLO" "HTTP" "CACHE" "DNS" "TCP" "TLS" "TTFB" "TOTAL" "CF-RAY"
+  printf -- "---------+--------+-----+-----------+-------+-------+-------+-----------+-----------+--------------------------\n"
 fi
 
 # Summary on exit (Ctrl+C, TERM, or after fixed count)
@@ -244,16 +244,10 @@ while true; do
     | tr -d '\r' \
     | paste -sd ',' - 2>/dev/null)
 
-  # Pull cfRequestDuration ms value out of server-timing
-  cf_dur_ms=$(printf '%s' "$server_timing" \
-    | grep -oE 'cfRequestDuration;dur=[0-9.]+' \
-    | head -1 | sed 's/.*=//')
-
   colo="${colo:-???}"
   cache="${cache:-NONE}"
   ray="${ray:--}"
   code="${code:-000}"
-  cf_dur_ms="${cf_dur_ms:-}"
 
   ts=$(date +%H:%M:%S)
   ts_iso=$(date +%FT%T%z)
@@ -267,22 +261,21 @@ while true; do
 
   # Live row
   ttfb_colored=$(color_ttfb "$ttfb")
-  cf_dur_disp="${cf_dur_ms:--}"
-  if [ "$DETAILED" -eq 1 ]; then
-    printf "%-8s | ${CYAN}%-6s${RESET} | %-3s | %-9s | %5s | %5s | %5s | %b | %7.3fs | %7s | %s\n" \
+  if [ "$COMPACT" -eq 1 ]; then
+    printf "%-8s | ${CYAN}%-6s${RESET} | %-3s | %-9s | %b | %7.3fs | %s\n" \
+      "$ts" "$colo" "$code" "$cache" \
+      "$ttfb_colored" "$total" "$ray"
+  else
+    printf "%-8s | ${CYAN}%-6s${RESET} | %-3s | %-9s | %5s | %5s | %5s | %b | %7.3fs | %s\n" \
       "$ts" "$colo" "$code" "$cache" \
       "$dns_ms" "$tcp_ms" "$tls_ms" \
-      "$ttfb_colored" "$total" "$cf_dur_disp" "$ray"
-  else
-    printf "%-8s | ${CYAN}%-6s${RESET} | %-3s | %-9s | %b | %7.3fs | %7s | %s\n" \
-      "$ts" "$colo" "$code" "$cache" \
-      "$ttfb_colored" "$total" "$cf_dur_disp" "$ray"
+      "$ttfb_colored" "$total" "$ray"
   fi
 
   # Stats / output: only record successful requests
   if [ "$code" != "000" ] && [ "$code" -ge 200 ] && [ "$code" -lt 400 ]; then
     {
-      printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+      printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
         "$(csv_field "$ts_iso")" \
         "$(csv_field "$colo")" \
         "$(csv_field "$cache")" \
@@ -292,7 +285,6 @@ while true; do
         "$tls_ms" \
         "$ttfb" \
         "$total" \
-        "${cf_dur_ms:-}" \
         "$(csv_field "$ray")" \
         "$(csv_field "$server_timing")"
     } >> "$STATS_FILE"
@@ -300,18 +292,17 @@ while true; do
     if [ -n "$JSON_OUT" ]; then
       {
         printf '{'
-        printf '"timestamp":%s,'        "$(json_str "$ts_iso")"
-        printf '"colo":%s,'             "$(json_str "$colo")"
-        printf '"cache":%s,'            "$(json_str "$cache")"
-        printf '"http_code":%s,'        "$code"
-        printf '"dns_ms":%s,'           "$dns_ms"
-        printf '"tcp_ms":%s,'           "$tcp_ms"
-        printf '"tls_ms":%s,'           "$tls_ms"
-        printf '"ttfb_s":%s,'           "$ttfb"
-        printf '"total_s":%s,'          "$total"
-        printf '"cf_req_duration_ms":%s,' "${cf_dur_ms:-null}"
-        printf '"cf_ray":%s,'           "$(json_str "$ray")"
-        printf '"server_timing":%s'     "$(json_str "$server_timing")"
+        printf '"timestamp":%s,'    "$(json_str "$ts_iso")"
+        printf '"colo":%s,'         "$(json_str "$colo")"
+        printf '"cache":%s,'        "$(json_str "$cache")"
+        printf '"http_code":%s,'    "$code"
+        printf '"dns_ms":%s,'       "$dns_ms"
+        printf '"tcp_ms":%s,'       "$tcp_ms"
+        printf '"tls_ms":%s,'       "$tls_ms"
+        printf '"ttfb_s":%s,'       "$ttfb"
+        printf '"total_s":%s,'      "$total"
+        printf '"cf_ray":%s,'       "$(json_str "$ray")"
+        printf '"server_timing":%s' "$(json_str "$server_timing")"
         printf '}\n'
       } >> "$JSON_OUT"
     fi
